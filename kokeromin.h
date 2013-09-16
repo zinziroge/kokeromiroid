@@ -3,6 +3,20 @@
 #ifndef __KOKEROMIN_H__
 #define __KOKEROMIN_H__
 
+////////////////////////////////////////////////////////////////////////////////
+#define BTN_HOLD_TIME     500
+#define SFT_WAIT_TIME     2000
+
+////////////////////////////////////////////////////////////////////////////////
+#define SD_CHIP_SELECT    4
+
+////////////////////////////////////////////////////////////////////////////////
+enum KoKeSound {
+  C, D, E, F, G, A, B,
+  CS, DS, FS, GS, AS
+};
+
+////////////////////////////////////////////////////////////////////////////////
 #define KOKE_TIMBRE_NML   7
 #define KOKE_TIMBRE_SFT   5
 #define KOKE_STYLE_NML    6
@@ -13,14 +27,6 @@
 #define KOKE_RANGE_SFT    0
 #define KOKE_SCALE_NML    5
 #define KOKE_SCALE_SFT    7
-
-#define BTN_HOLD_TIME     500
-#define SFT_WAIT_TIME     2000
-
-enum KoKeSound {
-  C, D, E, F, G, A, B,
-  CS, DS, FS, GS, AS
-};
 
 enum KoKeTimbre {
   Tah, Violin, Keroko, Kerooya, Kokeh, Nyah, Won, // normal
@@ -47,11 +53,13 @@ enum KoKeScale {
   Hecho, Tocho, Minyou, Miyakobushi, Arabia, Spain, Hanonkai
 };
 
+////////////////////////////////////////////////////////////////////////////////
 enum KoKeBtn {
-  Pron,
+  Pron=1,
   Shift, Timbre, Scale, Style, LowTone, Range
 };
 
+////////////////////////////////////////////////////////////////////////////////
 enum KoKeMode {
   Normal, Soramimi, Drum
 };
@@ -60,8 +68,20 @@ enum KoKeDrum {
   Snare, Buss, Hihat, Tam, Rimshot, CrushCymbal, RideCymbal 
 };
 
+////////////////////////////////////////////////////////////////////////////////
+enum KoKeInst {
+  INST_PUSH_PRON=1,
+  INST_PUSH_SFT, INST_PUSH_TIMBRE, INST_PUSH_SCALE, 
+  INST_PUSH_STYLE, INST_PUSH_LOW_TONE, INST_PUSH_RANGE,
+  INST_CHG_MODE, 
+  INST_CHG_TIMBRE, INST_CHG_SCALE, INST_CHG_STYLE, INST_CHG_LOW_TONE, INST_CHG_RANGE,
+  INST_TEMPO
+};
+
+////////////////////////////////////////////////////////////////////////////////
 //Servo servo;
 
+////////////////////////////////////////////////////////////////////////////////
 class KoKeromin {
 private:
   KoKeTimbre timbre_mode;
@@ -80,14 +100,33 @@ private:
   unsigned int range_pin;
   unsigned int scale_pin;
   
+  unsigned int whole_note_len;
   //Servo servo;
   
+  // config
   void chgConfig(const unsigned int mode, KoKeBtn btn, const unsigned int n_nml, const unsigned int n_sft);
+  
+  // button
   //void pushBtnLong(const unsigned int btn, const unsigned int stay_time); // push button a few second, and release
-  void holddownBtn(const unsigned int btn);
-  void releaseBtn(const unsigned int btn);
-  void setAngle(const unsigned int deg);
+  void holddownBtn(KoKeBtn btn);
+  void releaseBtn(KoKeBtn btn);
 
+  // deg
+  int getDeg(const unsigned int interval);
+
+  // play a sound
+  void playSound(const unsigned int btn, const unsigned int interval, const unsigned int note);
+  
+  // change mode
+  void chgTimbre(KoKeTimbre mode);
+  void chgScale(KoKeScale mode);
+  void chgStyle(KoKeStyle mode);
+  void chgLowTone(KoKeLowTone mode);
+  void chgRange(KoKeRange mode);
+  void returnNmlMode();
+  void chgSoramimiMode();
+  void chgDrumMode();
+  
 public:
   KoKeromin(
     const unsigned int pron_pin, 
@@ -97,20 +136,15 @@ public:
     );
   ~KoKeromin();
 
-  void chgTimbre(KoKeTimbre mode);
-  void chgStyle(KoKeStyle mode);
-  void chgLowTone(KoKeLowTone mode);
-  void chgRange(KoKeRange mode);
-  void chgScale(KoKeScale mode);
-  
-  void chgSoramimiMode();
-  void chgDrumMode();
-  void returnNmlMode();
-  
-  void pushBtn(const unsigned int btn, const unsigned int stay_time);  // push button a few second, and release
-  int playSound(KoKeSound sound, unsigned int octave);
+  // button
+  unsigned int btn2pin(KoKeBtn btn);
+  void pushBtn(KoKeBtn btn, const unsigned int stay_time);  // push button a few second, and release
 
-  void dbg_setAngle(const unsigned int deg);
+  // music
+  void readMusic(const char* music_file_name);
+  
+  // debug
+  void setAngle(const unsigned int deg);
 };
   
 #endif

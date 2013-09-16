@@ -1,4 +1,6 @@
 #include <Servo.h>
+#include <SD.h>
+
 #include "kokeromin.h"
 
 //Servo servo;
@@ -7,7 +9,7 @@ KoKeromin::KoKeromin(
     const unsigned int _pron_pin, 
     const unsigned int _shift_pin, const unsigned int _timbre_pin, const unsigned int _style_pin,
     const unsigned int _low_tone_pin, const unsigned int _range_pin, const unsigned int _scale_pin,
-    const unsigned int servo_pin
+    const unsigned int _servo_pin
 )
 {
   pinMode(_pron_pin, OUTPUT);
@@ -26,29 +28,42 @@ KoKeromin::KoKeromin(
   range_pin = _range_pin;
   scale_pin = _scale_pin;
   
-  //servo.attach(servo_pin);
+  //servo.attach(_servo_pin);
 }
 
 KoKeromin::~KoKeromin()
 {
 }
 
-void KoKeromin::pushBtn(const unsigned int btn, const unsigned int stay_time)
+unsigned int KoKeromin::btn2pin(KoKeBtn btn)
 {
-  digitalWrite(btn, 1);
+  switch(btn) {
+    case Pron:  return pron_pin;
+    case Timbre: return timbre_pin;
+    case Style: return style_pin;
+    case LowTone: return low_tone_pin;
+    case Range: return range_pin;
+    case Scale: return scale_pin;
+    default: return pron_pin;
+  }
+}
+
+void KoKeromin::pushBtn(KoKeBtn btn, const unsigned int stay_time)
+{
+  digitalWrite(btn2pin(btn), 1);
   delay(stay_time);
-  digitalWrite(btn, 0);
+  digitalWrite(btn2pin(btn), 0);
   delay(100);
 }
 
-void KoKeromin::holddownBtn(const unsigned int btn)
+void KoKeromin::holddownBtn(KoKeBtn btn)
 {
-  digitalWrite(btn, 1);
+  digitalWrite(btn2pin(btn), 1);
 }
 
-void KoKeromin::releaseBtn(const unsigned int btn)
+void KoKeromin::releaseBtn(KoKeBtn btn)
 {
-  digitalWrite(btn, 0);
+  digitalWrite(btn2pin(btn), 0);
 }
 
 void KoKeromin::chgConfig(
@@ -180,26 +195,26 @@ void KoKeromin::chgScale(KoKeScale mode)
 
 void KoKeromin::chgSoramimiMode ()
 {
-  holddownBtn(pron_pin);
+  holddownBtn(Pron);
   delay(SFT_WAIT_TIME);
-  pushBtn(timbre_pin, BTN_HOLD_TIME);
-  releaseBtn(pron_pin);
+  pushBtn(Timbre, BTN_HOLD_TIME);
+  releaseBtn(Pron);
 }
 
 void KoKeromin::chgDrumMode() 
 {
-  holddownBtn(pron_pin);
+  holddownBtn(Pron);
   delay(SFT_WAIT_TIME);
-  pushBtn(range_pin, BTN_HOLD_TIME);
-  releaseBtn(pron_pin);
+  pushBtn(Range, BTN_HOLD_TIME);
+  releaseBtn(Pron);
 }
 
 void KoKeromin::returnNmlMode() 
 {
-  holddownBtn(style_pin);
+  holddownBtn(Style);
   delay(SFT_WAIT_TIME);
-  pushBtn(range_pin, BTN_HOLD_TIME);
-  releaseBtn(style_pin);
+  pushBtn(Range, BTN_HOLD_TIME);
+  releaseBtn(Style);
 }
 
 void KoKeromin::setAngle(const unsigned int deg)
@@ -208,13 +223,104 @@ void KoKeromin::setAngle(const unsigned int deg)
   servo.write(deg);
 }
 
-int KoKeromin::playSound(KoKeSound sound, unsigned int octave)
+void KoKeromin::readAngleFile(const char* angle_file_name)
 {
 }
 
-void KoKeromin::dbg_setAngle(const unsigned int deg)
+void KoKeromin::readMusic(const char* music_file_name)
 {
-  setAngle(deg);
+  // init SD
+  if (!SD.begin(SD_CHIP_SELECT)) {
+    Serial.println(F("Card failed, or not present"));
+    // do nothing
+    while(1);
+  }
+  Serial.println(F("ok."));
+
+  // open file
+  File dataFile = SD.open(music_file_name);
+  
+  if (dataFile) {
+    // 8byte単位で読み出す
+    byte buffer[8];
+    
+    while (dataFile.available()) {
+      int length = dataFile.available();
+      if(length > 8){
+        length = 8;
+      }
+      dataFile.read(buffer, length);
+      Serial.write(buffer, length);
+
+      switch(buffer[0]) {
+        case INST_PUSH_PRON:
+        case INST_PUSH_SFT:
+        case INST_PUSH_TIMBRE:
+        case INST_PUSH_SCALE:
+        case INST_PUSH_STYLE:
+        case INST_PUSH_LOW_TONE:
+        case INST_PUSH_RANGE:
+          playSound(buffer[0], buffer[2], buffer[4]); // button, interval, note
+          break;
+        case INST_CHG_MODE:
+          switch(buffer[2]) {
+            case Normal:
+              returnNmlMode();
+              break;
+            case Soramimi:
+              chgSoramimiMode();
+              break;
+            case Drum:
+              chgDrumMode();
+              break;
+            default: 
+              break;
+          }
+          break;
+        case INST_CHG_TIMBRE:
+          chgTimbre((KoKeTimbre)buffer[2]);
+          break;
+        case INST_CHG_SCALE:
+          chgScale((KoKeScale)buffer[2]);
+          break;
+        case INST_CHG_STYLE:
+          chgStyle((KoKeStyle)buffer[2]);
+          break;
+        case INST_CHG_LOW_TONE:
+          chgLowTone((KoKeLowTone)buffer[2]);
+          break;
+        case INST_CHG_RANGE:
+          chgRange((KoKeRange)buffer[2]);
+          break;
+        case INST_TEMPO:
+          whole_note_len = buffer[2] * 10;
+          break;
+        default:
+          break;
+      }
+    }
+    
+    dataFile.close();
+  }
+  else {
+    // ファイルが開けなかったらエラーを出力する
+    Serial.println(F("error opening datalog.txt"));
+  }
 }
 
+void KoKeromin::playSound(const unsigned int btn, const unsigned int interval, const unsigned int note)
+{
+  int deg = 0;//getDeg(interval);
+  int deg_correction;
+  static int pre_interval;
+  
+  setAngle(deg + deg_correction);
+  pushBtn((KoKeBtn)btn, whole_note_len * note/128);
+  
+  pre_interval = interval;
+}
+
+int KoKeromin::getDeg(const unsigned int interval)
+{
+}
 
