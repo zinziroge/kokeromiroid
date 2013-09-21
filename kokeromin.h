@@ -140,11 +140,13 @@ public:
   unsigned int btn2pin(KoKeBtn btn);
   void pushBtn(KoKeBtn btn, const unsigned int stay_time);  // push button a few second, and release
 
-  // music
-  void readMusic(const char* music_file_name);
-  
-  // debug
+  // angle
   void setAngle(const unsigned int deg);
+  void readAngleFile(const char* angle_file_name);
+
+  // music
+  void readMusicFile(const char* music_file_name);
+
 };
   
 #endif

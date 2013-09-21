@@ -227,7 +227,42 @@ void KoKeromin::readAngleFile(const char* angle_file_name)
 {
 }
 
-void KoKeromin::readMusic(const char* music_file_name)
+/*
+int readLine(File* dataFile, byte* buffer, const int len)
+{
+  int cnt = 0;
+  
+      while( dataFile.available() && cnt < len ) {
+        char c = dataFile.read();
+        if( c == '\n' ) {
+          break;
+        } else {
+          buffer[cnt++] = c;
+        }
+      }
+}
+*/
+
+int split(const byte* buf, const int buf_len, int* vals, int val_len, const char sc)
+{
+  int i;
+  int val_i;
+  int tmp;
+
+  for(i=0; i<buf_len; i++) {
+    if( buf[i] == sc ) {
+      vals[val_i] = tmp;
+      tmp = 0;
+      val_i++;
+    } else if( 0 <= buf[i] - '0' && buf[i] - '0' <= 9 ) {
+      tmp = tmp*10 + buf[i] - '0';
+    }
+  }
+
+  return val_i;
+}
+
+void KoKeromin::readMusicFile(const char* music_file_name)
 {
   // init SD
   if (!SD.begin(SD_CHIP_SELECT)) {
@@ -241,18 +276,35 @@ void KoKeromin::readMusic(const char* music_file_name)
   File dataFile = SD.open(music_file_name);
   
   if (dataFile) {
-    // 8byte単位で読み出す
-    byte buffer[8];
+    byte buffer[16]; // line buffer
+    int vals[3]; // split vals
     
     while (dataFile.available()) {
       int length = dataFile.available();
-      if(length > 8){
-        length = 8;
+      int buf_len;
+      int cnt;
+      
+      if(length > 16){
+        length = 16;
       }
-      dataFile.read(buffer, length);
-      Serial.write(buffer, length);
 
-      switch(buffer[0]) {
+      // read line
+      //buf_len = readLine(dataFile, buffer, 16);
+      cnt = 0;
+      while( dataFile.available() && cnt < 16 ) {
+        char c = dataFile.read();
+        if( c == '\n' ) {
+         break;
+        } else {
+          buffer[cnt++] = c;
+        }
+      }
+      
+      split(buffer, buf_len, vals, 3, ',');
+      //dataFile.read(buffer, length);
+      Serial.write(buffer, buf_len);
+
+      switch( vals[0] ) {
         case INST_PUSH_PRON:
         case INST_PUSH_SFT:
         case INST_PUSH_TIMBRE:
@@ -260,10 +312,10 @@ void KoKeromin::readMusic(const char* music_file_name)
         case INST_PUSH_STYLE:
         case INST_PUSH_LOW_TONE:
         case INST_PUSH_RANGE:
-          playSound(buffer[0], buffer[2], buffer[4]); // button, interval, note
+          playSound(vals[0], vals[1], vals[2]); // button, interval, note
           break;
         case INST_CHG_MODE:
-          switch(buffer[2]) {
+          switch(vals[1]) {
             case Normal:
               returnNmlMode();
               break;
@@ -278,22 +330,22 @@ void KoKeromin::readMusic(const char* music_file_name)
           }
           break;
         case INST_CHG_TIMBRE:
-          chgTimbre((KoKeTimbre)buffer[2]);
+          chgTimbre((KoKeTimbre)vals[1]);
           break;
         case INST_CHG_SCALE:
-          chgScale((KoKeScale)buffer[2]);
+          chgScale((KoKeScale)vals[1]);
           break;
         case INST_CHG_STYLE:
-          chgStyle((KoKeStyle)buffer[2]);
+          chgStyle((KoKeStyle)vals[1]);
           break;
         case INST_CHG_LOW_TONE:
-          chgLowTone((KoKeLowTone)buffer[2]);
+          chgLowTone((KoKeLowTone)vals[1]);
           break;
         case INST_CHG_RANGE:
-          chgRange((KoKeRange)buffer[2]);
+          chgRange((KoKeRange)vals[1]);
           break;
         case INST_TEMPO:
-          whole_note_len = buffer[2] * 10;
+          whole_note_len = vals[1] * 10;
           break;
         default:
           break;
@@ -303,7 +355,6 @@ void KoKeromin::readMusic(const char* music_file_name)
     dataFile.close();
   }
   else {
-    // ファイルが開けなかったらエラーを出力する
     Serial.println(F("error opening datalog.txt"));
   }
 }
