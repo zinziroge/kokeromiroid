@@ -219,6 +219,7 @@ void KoKeromin::returnNmlMode()
 
 void KoKeromin::setAngle(const unsigned int deg)
 {
+  Serial.print("angle=");
   Serial.println(deg);
   servo.write(deg);
 }
@@ -246,17 +247,26 @@ int readLine(File* dataFile, byte* buffer, const int len)
 int split(const byte* buf, const int buf_len, int* vals, int val_len, const char sc)
 {
   int i;
-  int val_i;
-  int tmp;
-
+  int val_i=0;
+  int tmp=0;
+  int cnt=0;
+  
   for(i=0; i<buf_len; i++) {
     if( buf[i] == sc ) {
-      vals[val_i] = tmp;
+      vals[val_i++] = tmp;
       tmp = 0;
-      val_i++;
+      cnt = 0;
     } else if( 0 <= buf[i] - '0' && buf[i] - '0' <= 9 ) {
       tmp = tmp*10 + buf[i] - '0';
+      cnt++;
     }
+    //Serial.println(tmp);
+  }
+  
+  if( cnt > 0 ) { // if not end at 'sc'
+    vals[val_i] = tmp;
+  } else {
+    val_i--;
   }
 
   return val_i;
@@ -264,46 +274,51 @@ int split(const byte* buf, const int buf_len, int* vals, int val_len, const char
 
 void KoKeromin::readMusicFile(const char* music_file_name)
 {
-  // init SD
-  if (!SD.begin(SD_CHIP_SELECT)) {
-    Serial.println(F("Card failed, or not present"));
-    // do nothing
-    while(1);
-  }
-  Serial.println(F("ok."));
+
 
   // open file
-  File dataFile = SD.open(music_file_name);
+  File dataFile = SD.open(music_file_name, FILE_READ);
   
   if (dataFile) {
     byte buffer[16]; // line buffer
     int vals[3]; // split vals
     
+    //Serial.println("----");
     while (dataFile.available()) {
       int length = dataFile.available();
       int buf_len;
-      int cnt;
       
+       //Serial.println(dataFile.available());
+
       if(length > 16){
         length = 16;
       }
 
       // read line
       //buf_len = readLine(dataFile, buffer, 16);
-      cnt = 0;
-      while( dataFile.available() && cnt < 16 ) {
+      buf_len = 0;
+      while( dataFile.available() && buf_len < 16 ) {
         char c = dataFile.read();
+        Serial.write(c);
         if( c == '\n' ) {
-         break;
+          break;
+        } else if( c == '\r' ) {
+          // do nothing
         } else {
-          buffer[cnt++] = c;
+          buffer[buf_len++] = c;
         }
       }
+      //Serial.println(buf_len);
+      //Serial.println("-");
       
       split(buffer, buf_len, vals, 3, ',');
+      //Serial.println("--");
       //dataFile.read(buffer, length);
-      Serial.write(buffer, buf_len);
-
+      //Serial.println(vals[0]);
+      //Serial.println(vals[1]);
+      //Serial.println(vals[2]);
+      //Serial.println("---");
+      
       switch( vals[0] ) {
         case INST_PUSH_PRON:
         case INST_PUSH_SFT:
@@ -346,6 +361,7 @@ void KoKeromin::readMusicFile(const char* music_file_name)
           break;
         case INST_TEMPO:
           whole_note_len = vals[1] * 10;
+          whole_note_len = 4000;
           break;
         default:
           break;
@@ -361,14 +377,27 @@ void KoKeromin::readMusicFile(const char* music_file_name)
 
 void KoKeromin::playSound(const unsigned int btn, const unsigned int interval, const unsigned int note)
 {
-  int deg = 0;//getDeg(interval);
-  int deg_correction;
-  static int pre_interval;
+  int deg;
+  int deg_correction = 0;
+  static int pre_deg;
   
-  setAngle(deg + deg_correction);
-  pushBtn((KoKeBtn)btn, whole_note_len * note/128);
+  if( (deg - pre_deg) < 4 && 0 < (deg - pre_deg) ) {
+    deg_correction = 2;
+  } else if( (deg - pre_deg) > -4 && 0 > (deg - pre_deg) ) {
+    deg_correction = -2;
+  }
+  deg_correction = 0;
   
-  pre_interval = interval;
+  if( interval == 255 ) {
+    deg = pre_deg;
+    setAngle(deg);
+  } else {
+    deg = onkai[interval];
+    setAngle(deg + deg_correction);
+    pushBtn((KoKeBtn)btn, whole_note_len /128 * note);
+  }
+  
+  pre_deg = deg;
 }
 
 int KoKeromin::getDeg(const unsigned int interval)

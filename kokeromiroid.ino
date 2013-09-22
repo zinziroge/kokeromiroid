@@ -1,8 +1,23 @@
+#include <SD.h>
 #include "kokeromin.h"
 
-KoKeromin koke(2,3,4,5,6,7,8,9);
+//KoKeromin koke(2,3,4,5,6,7,8,1);
+KoKeromin koke(2,4,4,5,6,7,8,3);
 #define LEN 400
-int onkai[] = {108, 102, 97, 95, 85, 81, 75, 72};
+
+/*
+int onkai[] = {
+  150, 150, 150, 150, 150, 150, 150
+};
+*/
+//  108, 108, 102, 102,  97,  95,  95,  85,  85,  81,  81,  75,
+int onkai[] = {
+  //C. C#,  D,   D#,  E,   F,   F#,  G,   G#,  A,   A#,  B
+  150, 142, 139, 136, 133, 130, 127, 124, 121, 118, 115, 112,
+  108, 108, 102, 102,  97,  95,  95,  85,  85,  81,  81,  73,
+   72,  72,  69,  69,  60,  54,  54,  54,  54,  54,  54,  54
+};
+
 int score[][2] =
 {
   {0, LEN},
@@ -50,7 +65,15 @@ Servo servo;
 void setup()
 {
   Serial.begin(9600);
-  servo.attach(9);
+  servo.attach(3);
+
+  // init SD
+  if (!SD.begin(SD_CHIP_SELECT)) {
+    Serial.println(F("Card failed, or not present"));
+    // do nothing
+    while(1);
+  }
+  Serial.println(F("ok."));
 }
 
 int deg;
@@ -58,6 +81,25 @@ int cnt;
 int pre_oto;
 
 void loop()
+{
+  int i;
+  int interval[] = {
+    12,14,16,17,19,21,23
+  };
+  
+  for(i=0; i<8; i++) {
+    koke.playSound(1, interval[i], 32);
+  }
+  //koke.readMusicFile("music.txt");
+  delay(3000);
+  //int deg = analogRead(0)/(double)1024*180*2;
+  //koke.setAngle(deg);
+  //servo.write(deg);
+  //Serial.println(deg);
+  //delay(1000);
+}
+
+void loop4()
 {
   int hosei;
   

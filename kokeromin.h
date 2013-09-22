@@ -8,7 +8,7 @@
 #define SFT_WAIT_TIME     2000
 
 ////////////////////////////////////////////////////////////////////////////////
-#define SD_CHIP_SELECT    4
+#define SD_CHIP_SELECT    9
 
 ////////////////////////////////////////////////////////////////////////////////
 enum KoKeSound {
@@ -114,9 +114,6 @@ private:
   // deg
   int getDeg(const unsigned int interval);
 
-  // play a sound
-  void playSound(const unsigned int btn, const unsigned int interval, const unsigned int note);
-  
   // change mode
   void chgTimbre(KoKeTimbre mode);
   void chgScale(KoKeScale mode);
@@ -146,6 +143,10 @@ public:
 
   // music
   void readMusicFile(const char* music_file_name);
+
+  // play a sound
+  void playSound(const unsigned int btn, const unsigned int interval, const unsigned int note);
+  
 
 };
   
