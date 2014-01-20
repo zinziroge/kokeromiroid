@@ -6,6 +6,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #define BTN_HOLD_TIME     500
 #define SFT_WAIT_TIME     2000
+#define SERVO_WAIT_TIME   200
 
 ////////////////////////////////////////////////////////////////////////////////
 #define SD_CHIP_SELECT    9
@@ -138,8 +139,10 @@ public:
   void pushBtn(KoKeBtn btn, const unsigned int stay_time);  // push button a few second, and release
 
   // angle
-  void setAngle(const unsigned int deg);
+  void setAngle(const unsigned int interval);
+  int  readAngleAin();
   void readAngleFile(const char* angle_file_name);
+  void calibAngle();
 
   // music
   void readMusicFile(const char* music_file_name);

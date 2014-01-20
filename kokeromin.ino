@@ -29,6 +29,8 @@ KoKeromin::KoKeromin(
   scale_pin = _scale_pin;
   
   //servo.attach(_servo_pin);
+  
+  whole_note_len = 4000;
 }
 
 KoKeromin::~KoKeromin()
@@ -217,11 +219,147 @@ void KoKeromin::returnNmlMode()
   releaseBtn(Style);
 }
 
-void KoKeromin::setAngle(const unsigned int deg)
+int KoKeromin::readAngleAin()
 {
+  unsigned long v=0;
+  unsigned int n = 1000;
+  int i;
+  int max_val = 0;
+  int min_val = 1023;
+  int max_sum = 0;
+  int min_sum = 0;
+  int ain;
+  
+  for(i=0; i<n; i++) { // 100ms
+    ain = analogRead(1);
+    v += ain;
+    if( min_val > ain ) {
+      min_val = ain;
+    }
+    if( max_val < ain ) {
+      max_val = ain;
+    }
+    if( i%200 == 199 ) {
+      max_sum += max_val;
+      min_sum += min_val;
+      max_val = 0;
+      min_val = 1023;
+    }
+    //delay(1);
+  }
+    Serial.print(min_val);
+    Serial.print(",");
+    Serial.print(max_val);
+    Serial.print(",");
+    Serial.print(max_val-min_val);
+    Serial.print(",");
+    Serial.print(v/(i+1));
+    Serial.print(",");
+    Serial.print(max_sum/5);
+    Serial.print(",");    
+    Serial.print(min_sum/5);
+    Serial.print(",");
+    Serial.println();
+  
+  //return v/n;
+  //return (max_val - min_val); 
+  return (max_sum - min_sum)/5; 
+}
+
+void KoKeromin::setAngle(const unsigned int interval)
+{
+  int deg = onkai[interval];
+  int ain_tgt = onkai_ain[interval];
+  //int ain_tgt = onkai_amp[interval];
+  int ain_read;
+  int ain_diff;
+  int i;
+  
+  /*
   Serial.print("angle=");
   Serial.println(deg);
+  Serial.print("ain_tgt=");
+  Serial.println(ain_tgt);  
+  for(i=0; i<4; i++) {
+    servo.write(deg);
+    delay(100);
+    ain_read = readAngleAin();
+    Serial.print("ain_read=");
+    Serial.println(ain_read);   
+    ain_diff = ain_read - ain_tgt;
+    if( abs(ain_diff) <=8 ) {
+      break;
+    } else if( ain_diff < 0 ) {
+      deg -= 2; // dc
+      Serial.println("ain up, deg down, mouse open");
+      //deg += 2; // amp
+      //Serial.println("ain down, deg up, mouse close");
+    } else {
+      deg += 2; // dc
+      Serial.println("ain down, deg up, mouse close");
+      //deg -= 2; //amp
+      //Serial.println("ain up, deg down, mouse open");
+    }
+  }
+  */
   servo.write(deg);
+  Serial.println();
+}
+
+void KoKeromin::calibAngle()
+{
+  int interval[] = {
+    //12,14,16,17,19,21,23
+    9, 11,
+    12,14,16,17,19,21,23,
+    24, 26
+  };
+  
+  int deg;
+  int ain_tgt;
+  int ain_read;
+  int ain_diff;
+  int i;
+  int j;
+  
+  Serial.println("calibrate kokeromin.");
+  for(j=0; j<11; j++) {
+    deg = onkai[interval[j]];
+    ain_tgt = onkai_ain[interval[j]];
+    //ain_tgt = onkai_amp[interval[j]];
+    Serial.print("ain_tgt=");
+    Serial.println(ain_tgt);  
+  
+    for(i=0; i<8; i++) {
+    servo.write(60);
+    //delay(1000);
+    servo.write(deg);
+    delay(1000);
+    ain_read = readAngleAin();
+    ain_diff = ain_read - ain_tgt;
+    Serial.print("ain_read=");
+    Serial.println(ain_read);   
+    if( abs(ain_diff) <=4 ) {
+      onkai[interval[j]] = deg;
+      Serial.println(interval[j]);   
+      Serial.println(deg);   
+      delay(5000);
+      break;
+    } else if( ain_diff < 0 ) {
+      deg -= ain_diff/5+1; //dc
+      Serial.println("ain up, deg down, mouse open");
+      //deg += 4; // amp
+      //Serial.println("ain down, deg up, mouse close");
+    } else {
+      deg += ain_diff/5+1; // dc
+      Serial.println("ain down, deg up, mouse close");
+      //deg -= 4; // amp
+      //Serial.println("ain up, deg down, mouse open");
+    }
+  }
+    Serial.println();
+  }
+  Serial.println("calibration finish.");
 }
 
 void KoKeromin::readAngleFile(const char* angle_file_name)
@@ -361,7 +499,7 @@ void KoKeromin::readMusicFile(const char* music_file_name)
           break;
         case INST_TEMPO:
           whole_note_len = vals[1] * 10;
-          whole_note_len = 4000;
+          whole_note_len = 2000;
           break;
         default:
           break;
@@ -377,27 +515,27 @@ void KoKeromin::readMusicFile(const char* music_file_name)
 
 void KoKeromin::playSound(const unsigned int btn, const unsigned int interval, const unsigned int note)
 {
-  int deg;
-  int deg_correction = 0;
-  static int pre_deg;
+  //int deg;
+  //int deg_correction = 0;
+  static int pre_interval;
   
-  if( (deg - pre_deg) < 4 && 0 < (deg - pre_deg) ) {
-    deg_correction = 2;
-  } else if( (deg - pre_deg) > -4 && 0 > (deg - pre_deg) ) {
-    deg_correction = -2;
-  }
-  deg_correction = 0;
+  //if( (deg - pre_deg) < 4 && 0 < (deg - pre_deg) ) {
+  // deg_correction = 2;
+  //} else if( (deg - pre_deg) > -4 && 0 > (deg - pre_deg) ) {
+  //  deg_correction = -2;
+  //}
+  //deg_correction = 0;
+  //deg_correction = 3;
   
   if( interval == 255 ) {
-    deg = pre_deg;
-    setAngle(deg);
+    setAngle(pre_interval);
   } else {
-    deg = onkai[interval];
-    setAngle(deg + deg_correction);
+    //deg = onkai[interval];
+    setAngle(interval);
     pushBtn((KoKeBtn)btn, whole_note_len /128 * note);
   }
   
-  pre_deg = deg;
+  pre_interval = interval;
 }
 
 int KoKeromin::getDeg(const unsigned int interval)
